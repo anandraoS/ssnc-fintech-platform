@@ -80,3 +80,4 @@ cd tools/pdf && npm ci && node build-pdf1.mjs && node build-pdf2.mjs && node ver
 
 No secrets are committed; configuration comes from environment variables (`.env.example` lists the names). The API is a JWT resource server that fails closed without a decoder. See `docs/security/` and `docs/operations/secrets-management.md`.
 # ssnc-fintech-platform
+# ssnc-fintech-platform
