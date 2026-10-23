@@ -1,0 +1,37 @@
+sequenceDiagram
+  autonumber
+  actor U as Customer
+  participant SPA as Angular SPA
+  participant API as TransactionController
+  participant S as TransactionService
+  participant DB as PostgreSQL
+  participant D as OutboxDispatcher
+  participant P as TransactionProcessor
+  participant L as LedgerService
+
+  U->>SPA: transfer 200.00 from A to B
+  SPA->>API: POST /api/v1/transactions<br/>Idempotency-Key: K, Bearer JWT
+  API->>S: submit(request, K, user)
+  S->>DB: SELECT idempotency (principal, K)
+  Note over S,DB: miss, so create (one DB transaction)
+  S->>DB: INSERT transaction RECEIVED, idempotency(K) UNIQUE
+  S->>S: AccessPolicy + TransactionValidator (advisory)
+  S->>DB: UPDATE VALIDATED, INSERT outbox TRANSACTION_VALIDATED, INSERT audit
+  DB-->>S: COMMIT
+  S-->>API: 202 Accepted (status VALIDATED)
+  API-->>SPA: 202 + Location
+  Note over D,P: asynchronous, at-least-once
+  D->>DB: lease outbox event (attempts+1, optimistic @Version)
+  D->>P: process(transactionId)
+  P->>DB: BEGIN
+  P->>DB: UPDATE status PROCESSING
+  P->>L: applyTransfer(tx)
+  L->>DB: SELECT ... FOR UPDATE lower account id
+  L->>DB: SELECT ... FOR UPDATE higher account id
+  L->>L: check ACTIVE, funds (authoritative)
+  L->>DB: UPDATE A debit, UPDATE B credit, INSERT 2 ledger entries
+  P->>DB: UPDATE status COMPLETED, INSERT attempt + audit
+  DB-->>P: COMMIT (debit and credit are atomic)
+  D->>DB: mark outbox DISPATCHED
+  SPA->>API: GET /transactions/{id}
+  API-->>SPA: status COMPLETED

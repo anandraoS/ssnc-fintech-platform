@@ -1,0 +1,27 @@
+flowchart LR
+  customer(["Customer<br/>(CUSTOMER role)"])
+  support(["Support agent<br/>(read-only)"])
+  ops(["Operations analyst<br/>(review, reconcile)"])
+  admin(["Administrator"])
+
+  subgraph platform["Investment Account and Transaction Management Platform (this repository)"]
+    spa["Angular SPA<br/>(nginx, same-origin /api)"]
+    api["platform-service<br/>Spring Boot 3 modular monolith"]
+    db[("PostgreSQL<br/>(H2 locally)")]
+    sim["clearing-simulator<br/>(test double of the<br/>external network)"]
+  end
+
+  idp[["OIDC identity provider<br/>(issues JWTs)"]]
+  clearing[["External payment-clearing<br/>network (real, production)"]]
+  obs[["Prometheus - Grafana<br/>OpenTelemetry - Jaeger"]]
+
+  customer --> spa
+  support --> spa
+  ops --> spa
+  admin --> spa
+  spa -->|"HTTPS + Bearer JWT"| api
+  api -->|"validate JWT (JWKS)"| idp
+  api -->|"JDBC, Flyway"| db
+  api -->|"REST: timeout, retry,<br/>circuit breaker"| clearing
+  api -.->|"dev / test"| sim
+  api -->|"metrics, traces, JSON logs"| obs

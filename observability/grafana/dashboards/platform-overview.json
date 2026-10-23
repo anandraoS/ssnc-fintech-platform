@@ -1,0 +1,117 @@
+{
+  "uid": "investment-platform-overview",
+  "title": "Investment Platform - Overview",
+  "tags": ["investment-platform", "spring-boot"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1, "type": "timeseries", "title": "API request rate (req/s) by status class",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum by (status) (rate(http_server_requests_seconds_count{job=\"platform-service\",uri!~\"/actuator.*\"}[1m]))", "legendFormat": "{{status}}" }]
+    },
+    {
+      "id": 2, "type": "timeseries", "title": "API latency percentiles (s)",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"platform-service\",uri!~\"/actuator.*\"}[5m])))", "legendFormat": "p50" },
+        { "refId": "B", "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"platform-service\",uri!~\"/actuator.*\"}[5m])))", "legendFormat": "p95" },
+        { "refId": "C", "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"platform-service\",uri!~\"/actuator.*\"}[5m])))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Server error rate (5xx)",
+      "gridPos": { "h": 8, "w": 4, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 0.01 }, { "color": "red", "value": 0.05 }] } }, "overrides": [] },
+      "targets": [{ "refId": "A", "expr": "sum(rate(http_server_requests_seconds_count{job=\"platform-service\",status=~\"5..\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count{job=\"platform-service\"}[5m])), 0.001)" }]
+    },
+    {
+      "id": 4, "type": "stat", "title": "Open reconciliation records",
+      "gridPos": { "h": 8, "w": 4, "x": 20, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }] } }, "overrides": [] },
+      "targets": [{ "refId": "A", "expr": "platform_reconciliation_open" }]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Transactions submitted per second by type and result",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum by (type, result) (rate(platform_transactions_submitted_total[1m]))", "legendFormat": "{{type}} {{result}}" }]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Transactions finished per second by status",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum by (status) (rate(platform_transactions_finished_total[1m]))", "legendFormat": "{{status}}" }]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "End-to-end processing latency p95 (submit to terminal state)",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (le, type) (rate(platform_transactions_end_to_end_seconds_bucket[5m])))", "legendFormat": "{{type}}" }]
+    },
+    {
+      "id": 8, "type": "timeseries", "title": "Outbox: backlog and dead letters",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "platform_outbox_backlog", "legendFormat": "pending" },
+        { "refId": "B", "expr": "platform_outbox_dead", "legendFormat": "dead-lettered" }
+      ]
+    },
+    {
+      "id": 9, "type": "timeseries", "title": "Database connection pool (HikariCP)",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "hikaricp_connections_active{job=\"platform-service\"}", "legendFormat": "active" },
+        { "refId": "B", "expr": "hikaricp_connections_idle{job=\"platform-service\"}", "legendFormat": "idle" },
+        { "refId": "C", "expr": "hikaricp_connections_pending{job=\"platform-service\"}", "legendFormat": "pending (waiting threads)" },
+        { "refId": "D", "expr": "hikaricp_connections_max{job=\"platform-service\"}", "legendFormat": "max" }
+      ]
+    },
+    {
+      "id": 10, "type": "timeseries", "title": "Hikari connection acquire time p95 (s)",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(hikaricp_connections_acquire_seconds_bucket{job=\"platform-service\"}[5m])))" }]
+    },
+    {
+      "id": 11, "type": "timeseries", "title": "JVM heap used vs max",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(jvm_memory_used_bytes{area=\"heap\",job=\"platform-service\"})", "legendFormat": "used" },
+        { "refId": "B", "expr": "sum(jvm_memory_max_bytes{area=\"heap\",job=\"platform-service\"})", "legendFormat": "max" }
+      ]
+    },
+    {
+      "id": 12, "type": "timeseries", "title": "GC pause time (fraction of wall time) and live threads",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "refId": "A", "expr": "rate(jvm_gc_pause_seconds_sum{job=\"platform-service\"}[1m])", "legendFormat": "GC pause fraction" },
+        { "refId": "B", "expr": "jvm_threads_live_threads{job=\"platform-service\"}", "legendFormat": "live threads" }
+      ]
+    },
+    {
+      "id": 13, "type": "stat", "title": "Clearing circuit breaker (1 = open)",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "mappings": [{ "type": "value", "options": { "0": { "text": "closed" }, "1": { "text": "OPEN" } } }], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } }, "overrides": [] },
+      "targets": [{ "refId": "A", "expr": "platform_clearing_circuit_open" }]
+    }
+  ]
+}

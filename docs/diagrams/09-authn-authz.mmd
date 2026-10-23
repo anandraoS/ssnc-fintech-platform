@@ -1,0 +1,18 @@
+flowchart LR
+  user(["Browser"]) -->|"1 sign in"| idp[["OIDC provider<br/>(local issuer in dev only)"]]
+  idp -->|"2 JWT: sub, roles, customer_id, exp, iss"| user
+  user -->|"3 Authorization: Bearer"| sec
+
+  subgraph sec["Spring Security filter chain (stateless)"]
+    v1["BearerTokenAuthenticationFilter<br/>signature - exp - issuer"]
+    v2["RateLimitFilter<br/>per subject / per IP"]
+    v3["authorizeHttpRequests<br/>deny by default"]
+    v1 --> v2 --> v3
+  end
+
+  sec --> m["@PreAuthorize role rules<br/>(WHAT may the role do)"]
+  m --> o["AccessPolicy object-level rules<br/>(WHICH records may the caller touch)"]
+  o -->|"allowed"| ok["business logic"]
+  o -->|"not owner"| nf["404 + ACCESS_DENIED audit<br/>(no existence leak)"]
+  m -->|"wrong role"| f403["403 ACCESS_DENIED"]
+  v1 -->|"bad / expired token"| u401["401 INVALID_TOKEN"]

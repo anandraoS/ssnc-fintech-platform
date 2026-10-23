@@ -1,0 +1,112 @@
+{
+  "measuredAt": "2026-10-18T12:45:13.952Z",
+  "environment": {
+    "note": "developer laptop, single JVM, in-memory H2, Node client on the same host; NOT a benchmark",
+    "node": "v24.13.1",
+    "platform": "win32",
+    "cpus": 8,
+    "secondsPerScenario": 8
+  },
+  "ledgerIntegrityViolations": 0,
+  "results": [
+    {
+      "scenario": "concurrent account + balance queries (32 clients)",
+      "requests": 3573,
+      "seconds": 8,
+      "rps": 446,
+      "p50_ms": 61.7,
+      "p95_ms": 159.5,
+      "p99_ms": 263.7,
+      "max_ms": 425.9,
+      "statuses": {
+        "200": 3573
+      }
+    },
+    {
+      "scenario": "deposit submission throughput (16 clients)",
+      "requests": 1560,
+      "seconds": 8,
+      "rps": 194,
+      "p50_ms": 62.4,
+      "p95_ms": 187.7,
+      "p99_ms": 288,
+      "max_ms": 475.9,
+      "statuses": {
+        "202": 1560
+      },
+      "processing": {
+        "submitted": 1560,
+        "balanceAfterDrain": "1560.00",
+        "balanceMatchesSubmissions": false,
+        "allProcessedWithinSeconds": 68.3
+      }
+    },
+    {
+      "scenario": "concurrent withdrawals on ONE account (16 clients, balance 300.00)",
+      "requests": 2204,
+      "seconds": 8.1,
+      "rps": 274,
+      "p50_ms": 45.4,
+      "p95_ms": 134.5,
+      "p99_ms": 222.6,
+      "max_ms": 379.3,
+      "statuses": {
+        "202": 2204
+      },
+      "integrity": {
+        "finalBalance": "0.00",
+        "completedWithdrawals": 300,
+        "neverNegative": true,
+        "balanceEqualsOpeningMinusCompleted": true
+      }
+    },
+    {
+      "scenario": "opposing transfers A<->B (16 clients)",
+      "requests": 2311,
+      "seconds": 8,
+      "rps": 288,
+      "p50_ms": 49.2,
+      "p95_ms": 112.7,
+      "p99_ms": 182.3,
+      "max_ms": 243.6,
+      "statuses": {
+        "202": 2311
+      },
+      "integrity": {
+        "totalAfter": 10000,
+        "moneyConserved": true
+      }
+    },
+    {
+      "scenario": "duplicate submissions, 25 distinct keys repeated (8 clients)",
+      "requests": 1648,
+      "seconds": 4,
+      "rps": 411,
+      "p50_ms": 14.6,
+      "p95_ms": 46.7,
+      "p99_ms": 61.9,
+      "max_ms": 180.3,
+      "statuses": {
+        "202": 1648
+      },
+      "integrity": {
+        "replayedResponses": 1623,
+        "depositsApplied": 25,
+        "expectedExactly": 25
+      }
+    },
+    {
+      "scenario": "transaction history, page size 100 over 300+ rows (8 clients)",
+      "requests": 2656,
+      "seconds": 8,
+      "rps": 332,
+      "p50_ms": 14.7,
+      "p95_ms": 69.4,
+      "p99_ms": 156.2,
+      "max_ms": 495.1,
+      "statuses": {
+        "200": 2656
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+flowchart TB
+  subgraph pyramid["Test pyramid (counts are from the last executed run, see validation report)"]
+    e2e["End-to-end (live stack)<br/>API scenarios - browser scenarios<br/>tests/e2e"]
+    it["Integration (Spring context + DB)<br/>REST, security, BOLA, idempotency, concurrency,<br/>schema constraints, contract, outbox<br/>*IT, failsafe, Testcontainers PostgreSQL"]
+    ft["Frontend component / service tests<br/>Karma + Jasmine"]
+    ut["Unit tests (pure logic, Mockito)<br/>money, state machine, validator,<br/>authorization, retry, ledger lock order<br/>*Test, surefire"]
+  end
+  perf["Performance and resilience<br/>local baseline, k6, chaos in e2e"]
+  e2e --> it --> ut
+  ft --- it
+  perf -.-> e2e

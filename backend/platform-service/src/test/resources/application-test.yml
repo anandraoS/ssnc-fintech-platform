@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:platformtest;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    hikari:
+      maximum-pool-size: 50
+      connection-timeout: 10000
+  flyway:
+    locations: classpath:db/migration/common,classpath:db/migration/{vendor},classpath:db/seed
+
+app:
+  docs:
+    public: true
+  security:
+    local-issuer:
+      enabled: true
+      demo-password: test-only-password
+    rate-limit:
+      api-capacity: 100000
+      api-refill-per-minute: 100000
+      auth-capacity: 1000
+      auth-refill-per-minute: 1000
+  processing:
+    dispatcher-enabled: false     # tests drive the outbox explicitly for determinism
+    reconciler-enabled: false
+    reconcile-grace: 0s
+    max-attempts: 3
+    backoff-base: 1ms
+
+logging:
+  level:
+    root: WARN
+    com.fintechdemo: WARN

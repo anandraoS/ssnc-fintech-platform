@@ -1,0 +1,21 @@
+stateDiagram-v2
+  direction LR
+  [*] --> RECEIVED: POST /transactions
+  RECEIVED --> VALIDATED: all rules pass
+  RECEIVED --> PENDING_REVIEW: amount >= review threshold
+  RECEIVED --> REJECTED: a business rule fails
+  RECEIVED --> CANCELLED
+  PENDING_REVIEW --> VALIDATED: approve (different operator)
+  PENDING_REVIEW --> REJECTED: reject
+  PENDING_REVIEW --> CANCELLED
+  VALIDATED --> PROCESSING: worker claims it
+  VALIDATED --> CANCELLED: only before processing
+  PROCESSING --> COMPLETED: ledger applied (and clearing authorized)
+  PROCESSING --> FAILED: refused / declined / not sent (funds returned)
+  PROCESSING --> RECONCILIATION_REQUIRED: external outcome unknown (funds stay reserved)
+  RECONCILIATION_REQUIRED --> COMPLETED: network confirms it executed
+  RECONCILIATION_REQUIRED --> FAILED: confirmed not executed (funds returned)
+  COMPLETED --> [*]
+  REJECTED --> [*]
+  FAILED --> [*]
+  CANCELLED --> [*]

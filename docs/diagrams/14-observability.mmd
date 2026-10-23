@@ -1,0 +1,15 @@
+flowchart LR
+  subgraph app["platform-service"]
+    logs["ECS JSON logs<br/>correlationId, traceId in MDC"]
+    met["Micrometer<br/>http.server.requests (histogram),<br/>platform.* business metrics,<br/>Hikari, JVM"]
+    trc["Micrometer Tracing<br/>OpenTelemetry bridge (OTLP)"]
+    hlt["Actuator health<br/>liveness / readiness (mgmt port)"]
+  end
+  logs --> agg["log aggregation<br/>(CloudWatch / Loki / ELK)"]
+  met -->|"/actuator/prometheus"| prom["Prometheus<br/>rules: alert-rules.yml"]
+  trc --> col["OpenTelemetry Collector<br/>scrub auth headers, batch"] --> jg["Jaeger / X-Ray / Tempo"]
+  hlt --> k8s["kubelet probes<br/>+ ops dashboard /ops/health"]
+  prom --> graf["Grafana<br/>platform-overview dashboard"]
+  prom --> am["Alertmanager<br/>page / ticket + runbook links"]
+  agg --> graf
+  jg --> graf

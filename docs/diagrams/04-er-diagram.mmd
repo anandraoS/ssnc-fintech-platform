@@ -1,0 +1,86 @@
+erDiagram
+  CUSTOMERS ||--o{ ACCOUNTS : owns
+  ACCOUNTS ||--o{ TRANSACTIONS : "source of"
+  ACCOUNTS ||--o{ TRANSACTIONS : "target of"
+  TRANSACTIONS ||--o{ TRANSACTION_ATTEMPTS : "processing trail"
+  TRANSACTIONS ||--|| IDEMPOTENCY_RECORDS : "created by key"
+  TRANSACTIONS ||--o{ LEDGER_ENTRIES : posts
+  ACCOUNTS ||--o{ LEDGER_ENTRIES : "balance = sum"
+  TRANSACTIONS ||--o{ RECONCILIATION_RECORDS : "may need"
+  TRANSACTIONS ||--o{ OUTBOX_EVENTS : announces
+
+  CUSTOMERS {
+    uuid id PK
+    varchar customer_ref UK
+    varchar email UK
+    varchar status "ACTIVE, SUSPENDED, CLOSED"
+    bigint version "optimistic lock"
+  }
+  ACCOUNTS {
+    uuid id PK
+    varchar account_number UK
+    uuid customer_id FK
+    varchar account_type
+    varchar status
+    char3 currency
+    numeric19_4 balance "CHECK balance >= 0"
+    numeric19_4 minimum_balance
+    numeric19_4 daily_withdrawal_limit
+    bigint version
+  }
+  TRANSACTIONS {
+    uuid id PK
+    varchar reference UK
+    varchar transaction_type
+    varchar status "9 states"
+    uuid source_account_id FK
+    uuid target_account_id FK
+    numeric19_4 amount "CHECK amount > 0"
+    boolean funds_reserved
+    bigint version
+  }
+  IDEMPOTENCY_RECORDS {
+    uuid id PK
+    varchar principal
+    varchar idempotency_key
+    char64 request_hash
+    uuid transaction_id FK
+  }
+  LEDGER_ENTRIES {
+    bigint id PK
+    uuid transaction_id FK
+    uuid account_id FK
+    varchar entry_type "OPENING, DEBIT, CREDIT, REVERSAL_CREDIT"
+    numeric19_4 amount
+    numeric19_4 balance_after
+  }
+  RECONCILIATION_RECORDS {
+    uuid id PK
+    uuid transaction_id FK
+    varchar status "OPEN, RESOLVED"
+    varchar reason_code
+    varchar resolution
+  }
+  OUTBOX_EVENTS {
+    uuid id PK
+    uuid aggregate_id
+    varchar event_type
+    varchar status "NEW, DISPATCHED, DEAD"
+    int attempts
+  }
+  TRANSACTION_ATTEMPTS {
+    bigint id PK
+    uuid transaction_id FK
+    int attempt_no
+    varchar stage
+    varchar outcome
+  }
+  AUDIT_EVENTS {
+    bigint id PK
+    timestamptz occurred_at
+    varchar actor
+    varchar action
+    varchar entity_type
+    varchar entity_id
+    varchar correlation_id
+  }

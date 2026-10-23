@@ -1,0 +1,122 @@
+{
+  "ranAt": "2026-10-18T12:32:24.924Z",
+  "browser": "msedge.exe",
+  "pass": 19,
+  "fail": 0,
+  "results": [
+    {
+      "scenario": "sign-in validation and errors",
+      "check": "empty form shows field errors and sends nothing",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "sign-in validation and errors",
+      "check": "wrong password shows a generic error",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "customer journey: portfolio -> deposit -> history",
+      "check": "customer lands on the portfolio page",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "customer journey: portfolio -> deposit -> history",
+      "check": "customer sees own accounts only (ACC-1000000001 yes, ACC-1000000004 no)",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "customer journey: portfolio -> deposit -> history",
+      "check": "navigation hides staff pages",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "customer journey: portfolio -> deposit -> history",
+      "check": "deposit is accepted and shows a reference",
+      "result": "PASS",
+      "evidence": "TXN-DFEE661A72C6"
+    },
+    {
+      "scenario": "customer journey: portfolio -> deposit -> history",
+      "check": "amount with 3 decimals is blocked client-side",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "customer journey: portfolio -> deposit -> history",
+      "check": "the new transaction appears in the history list",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "customer journey: portfolio -> deposit -> history",
+      "check": "the transaction reaches COMPLETED through the asynchronous pipeline",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "customer journey: portfolio -> deposit -> history",
+      "check": "a customer is redirected from /audit to the not-permitted page",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "operations journey: dashboard, investigations, audit, customers",
+      "check": "dashboard shows KPI cards, service health and latency",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "operations journey: dashboard, investigations, audit, customers",
+      "check": "operations navigation includes staff pages",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "operations journey: dashboard, investigations, audit, customers",
+      "check": "investigations page renders with tabs",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "operations journey: dashboard, investigations, audit, customers",
+      "check": "audit trail lists events",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "operations journey: dashboard, investigations, audit, customers",
+      "check": "operators see full contact details",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "support agent sees masked PII and no money-movement entry points",
+      "check": "support navigation has no \"New transaction\"",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "support agent sees masked PII and no money-movement entry points",
+      "check": "e-mail addresses are masked for support",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "responsive layout",
+      "check": "no horizontal page overflow at 390 px wide",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "responsive layout",
+      "check": "no unexpected browser console errors during the run",
+      "result": "PASS",
+      "evidence": "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+    }
+  ]
+}

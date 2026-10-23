@@ -1,0 +1,53 @@
+flowchart TB
+  subgraph web["Web layer"]
+    f1["CorrelationIdFilter<br/>RequestSizeLimitFilter"]
+    f2["Spring Security chain<br/>JWT - RateLimitFilter - CORS - headers"]
+    c["Controllers (DTOs + Bean Validation)<br/>Customer - Account - Transaction - Ops - Auth"]
+    eh["GlobalExceptionHandler<br/>(one error envelope)"]
+  end
+
+  subgraph domain["Domain / application services"]
+    cs["CustomerService"]
+    as["AccountService"]
+    ts["TransactionService<br/>(submit, idempotency, review, cancel)"]
+    val["TransactionValidator<br/>(pure rules)"]
+    pol["AccessPolicy<br/>(object-level authz)"]
+    led["LedgerService<br/>(row locks, balance changes)"]
+    proc["TransactionProcessor<br/>(explicit tx boundaries)"]
+    rec["ReconciliationService"]
+    ops["OpsService<br/>(dashboard read models)"]
+    aud["AuditService"]
+  end
+
+  subgraph async["Asynchronous processing"]
+    ob["Transactional outbox<br/>(outbox_events)"]
+    disp["OutboxDispatcher<br/>lease - retry - dead letter"]
+    sch["ProcessingScheduler"]
+  end
+
+  subgraph infra["Infrastructure adapters"]
+    repo["Spring Data JPA repositories"]
+    cc["ClearingClient<br/>Rest | InProcess<br/>retry+jitter, circuit breaker"]
+    met["Micrometer metrics<br/>OTel tracing - ECS logs"]
+  end
+
+  db[("PostgreSQL<br/>Flyway-managed schema")]
+
+  f1 --> f2 --> c --> cs & as & ts & ops
+  c -.-> eh
+  ts --> val
+  ts --> pol
+  ts --> ob
+  ts --> aud
+  as --> pol
+  sch --> disp --> proc
+  ob --> disp
+  proc --> led
+  proc --> cc
+  proc --> rec
+  led --> repo
+  cs --> repo
+  as --> repo
+  ts --> repo
+  repo --> db
+  proc -.-> met

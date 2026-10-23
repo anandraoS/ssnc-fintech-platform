@@ -1,0 +1,37 @@
+# OpenTelemetry Collector: receives OTLP from the application (Micrometer Tracing -> OpenTelemetry bridge) and forwards
+# traces to Jaeger. In AWS replace the exporter with AWS X-Ray / Grafana Tempo / your APM of choice - the application
+# does not change, only this file.
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+  batch: {}
+  attributes/scrub:
+    actions:
+      - key: http.request.header.authorization
+        action: delete
+      - key: http.request.header.cookie
+        action: delete
+
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true      # container-to-container on a private network only
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/scrub, batch]
+      exporters: [otlp/jaeger, debug]

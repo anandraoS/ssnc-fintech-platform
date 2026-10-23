@@ -1,0 +1,88 @@
+### REST client file (VS Code "REST Client" / IntelliJ HTTP client). Local stack: scripts/run-local.sh
+### Variables - set them in your environment file or edit here. The password is the SYNTHETIC LOCAL_DEMO_PASSWORD you chose.
+@api = http://localhost:18480/api/v1
+@password = {{$processEnv LOCAL_DEMO_PASSWORD}}
+
+### 1. Sign in as an operator (local profile token issuer)
+# @name loginOps
+POST {{api}}/auth/token
+Content-Type: application/json
+
+{ "username": "omar.ops", "password": "{{password}}" }
+
+###
+@opsToken = {{loginOps.response.body.accessToken}}
+
+### 2. Sign in as a customer
+# @name loginAlice
+POST {{api}}/auth/token
+Content-Type: application/json
+
+{ "username": "alice.customer", "password": "{{password}}" }
+
+###
+@aliceToken = {{loginAlice.response.body.accessToken}}
+
+### 3. Who am I?
+GET {{api}}/me
+Authorization: Bearer {{aliceToken}}
+
+### 4. My accounts (customers only ever see their own)
+GET {{api}}/accounts?size=20&sort=openedAt,asc
+Authorization: Bearer {{aliceToken}}
+
+### 5. Balance of a seeded account
+GET {{api}}/accounts/10000000-0000-4000-8000-000000000001/balance
+Authorization: Bearer {{aliceToken}}
+
+### 6. Deposit (202 Accepted; Idempotency-Key is mandatory - repeat this request to see Idempotent-Replayed: true)
+POST {{api}}/transactions
+Authorization: Bearer {{aliceToken}}
+Idempotency-Key: http-file-deposit-0001
+Content-Type: application/json
+
+{ "type": "DEPOSIT", "targetAccountId": "10000000-0000-4000-8000-000000000001", "amount": "25.00", "currency": "USD", "memo": "REST client deposit" }
+
+### 7. Withdrawal that exceeds the balance (422 TRANSACTION_REJECTED, INSUFFICIENT_FUNDS)
+POST {{api}}/transactions
+Authorization: Bearer {{aliceToken}}
+Idempotency-Key: http-file-withdraw-0002
+Content-Type: application/json
+
+{ "type": "WITHDRAWAL", "sourceAccountId": "10000000-0000-4000-8000-000000000001", "amount": "9999999.00", "currency": "USD" }
+
+### 8. Transfer between two of Alice's accounts
+POST {{api}}/transactions
+Authorization: Bearer {{aliceToken}}
+Idempotency-Key: http-file-transfer-0003
+Content-Type: application/json
+
+{ "type": "TRANSFER", "sourceAccountId": "10000000-0000-4000-8000-000000000001", "targetAccountId": "10000000-0000-4000-8000-000000000003", "amount": "10.00", "currency": "USD" }
+
+### 9. Search transactions (filters, paging, sorting)
+GET {{api}}/transactions?status=COMPLETED&type=DEPOSIT&size=10&sort=createdAt,desc
+Authorization: Bearer {{aliceToken}}
+
+### 10. BOLA check: Alice asks for Bob's account -> 404 (and an ACCESS_DENIED audit event)
+GET {{api}}/accounts/10000000-0000-4000-8000-000000000004
+Authorization: Bearer {{aliceToken}}
+
+### 11. Operations dashboard
+GET {{api}}/ops/summary
+Authorization: Bearer {{opsToken}}
+
+### 12. Platform health (database, clearing network, outbox, reconciliation)
+GET {{api}}/ops/health
+Authorization: Bearer {{opsToken}}
+
+### 13. Open reconciliation records
+GET {{api}}/ops/reconciliations?status=OPEN
+Authorization: Bearer {{opsToken}}
+
+### 14. Audit events
+GET {{api}}/ops/audit-events?size=10
+Authorization: Bearer {{opsToken}}
+
+### 15. Ledger integrity (must be an empty list)
+GET {{api}}/ops/ledger-integrity
+Authorization: Bearer {{opsToken}}

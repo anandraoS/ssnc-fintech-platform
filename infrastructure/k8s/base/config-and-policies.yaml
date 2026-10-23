@@ -1,0 +1,79 @@
+# Non-secret configuration + network policies. The management port (9090) is reachable only from the monitoring namespace
+# and from the kubelet probes, never through the ingress.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-config
+data:
+  SPRING_PROFILES_ACTIVE: postgres
+  SERVER_PORT: "8080"
+  MANAGEMENT_SERVER_PORT: "9090"
+  DB_URL: jdbc:postgresql://platform-postgres.example.invalid:5432/platform?sslmode=require
+  DB_POOL_MAX: "20"
+  CORS_ALLOWED_ORIGINS: https://platform.example.invalid
+  LOG_STRUCTURED_FORMAT: ecs
+  TRACING_SAMPLING: "0.1"
+  OTLP_EXPORT_ENABLED: "true"
+  OTLP_TRACES_ENDPOINT: http://otel-collector.monitoring.svc:4318/v1/traces
+  # production-style token validation: the identity provider's issuer; there is NO local issuer in this configuration
+  OIDC_ISSUER_URI: https://idp.example.invalid/realms/investment
+  CLEARING_URL: https://clearing.example.invalid
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: platform-service
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: platform-service }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: frontend }
+      ports: [{ port: 8080 }]
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: monitoring }
+      ports: [{ port: 9090 }]
+  egress:
+    - to:                                   # DNS
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
+    - to:                                   # PostgreSQL, OIDC provider, clearing network, OTLP collector (CIDRs are environment specific)
+        - ipBlock: { cidr: 10.0.0.0/8 }
+      ports: [{ port: 5432 }, { port: 443 }, { port: 4318 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend
+spec:
+  podSelector:
+    matchLabels: { app.kubernetes.io/name: frontend }
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: ingress-nginx }
+      ports: [{ port: 8080 }]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: { app.kubernetes.io/name: platform-service }
+      ports: [{ port: 8080 }]
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]

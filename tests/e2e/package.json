@@ -1,0 +1,14 @@
+{
+  "name": "investment-platform-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests: API scenarios (no dependencies) and browser scenarios (puppeteer-core driving an installed Chromium/Edge/Chrome).",
+  "scripts": {
+    "e2e:api": "node e2e-api.mjs",
+    "e2e:ui": "node ui-e2e.mjs"
+  },
+  "dependencies": {
+    "puppeteer-core": "23.9.0"
+  }
+}

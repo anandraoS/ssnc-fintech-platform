@@ -1,0 +1,289 @@
+# CI/CD pipeline. NOTE: this workflow has NOT been executed by the author (no GitHub runner was available); it is
+# reviewed statically and every command in it was run locally where tooling allowed (see docs/validation/validation-report.md).
+#
+# Stages:  1 build+unit  2 integration  3 frontend lint/test/build  4 static analysis  5 dependency + secret scanning
+#          6 config validation  7 image build  8 image scan  9 versioned publish  10 deploy to test  11 smoke tests
+#
+# Security notes: least-privilege GITHUB_TOKEN permissions; third-party actions pinned by major tag here for readability -
+# pin to full commit SHAs in a real repository (Dependabot can keep them current); no secret is echoed; cloud/cluster
+# credentials exist only as repository/environment secrets and the deploy job is skipped when they are absent.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: "21"
+  NODE_VERSION: "22"
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+
+jobs:
+  # ---------------------------------------------------------------------------------------------------------------
+  backend:
+    name: "1-2 Backend: compile, unit tests, integration tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      # failsafe runs *IT classes in the verify phase; PostgresConcurrencyIT uses Testcontainers (Docker is available on
+      # GitHub-hosted runners, so the real-PostgreSQL concurrency scenarios run here although they cannot run on the author's laptop)
+      - name: Build, unit tests (surefire) and integration tests (failsafe)
+        run: mvn -B -f backend/pom.xml verify
+      - name: Verify the committed OpenAPI contract is current
+        run: git diff --exit-code specs/openapi.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-reports
+          path: |
+            backend/**/target/surefire-reports
+            backend/**/target/failsafe-reports
+            backend/**/target/site/jacoco*
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-jars
+          path: backend/*/target/*-1.0.0.jar
+          retention-days: 3
+
+  # ---------------------------------------------------------------------------------------------------------------
+  frontend:
+    name: "3 Frontend: lint, unit tests, production build"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npx ng lint
+      - uses: browser-actions/setup-chrome@v1
+        id: chrome
+      - name: Unit tests (Karma + Jasmine, headless Chrome) with coverage
+        run: npx ng test --watch=false --browsers=ChromeHeadlessNoSandbox --code-coverage
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+      - name: Production build
+        run: npx ng build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 3
+
+  # ---------------------------------------------------------------------------------------------------------------
+  frontend-react:
+    name: "3b React frontend: type-check, lint, unit tests, production build"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend-react
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend-react/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - name: Unit and component tests (Vitest + Testing Library)
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-react-dist
+          path: frontend-react/dist
+          retention-days: 3
+
+  # ---------------------------------------------------------------------------------------------------------------
+  static-analysis:
+    name: "4 Static analysis (SpotBugs + CodeQL)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - name: SpotBugs (fails on medium+ findings)
+        run: mvn -B -f backend/pom.xml -DskipTests compile com.github.spotbugs:spotbugs-maven-plugin:4.8.6.6:check -Dspotbugs.threshold=Medium
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin,javascript-typescript
+          build-mode: none
+      - uses: github/codeql-action/analyze@v3
+
+  # ---------------------------------------------------------------------------------------------------------------
+  security-scan:
+    name: "5 Dependency vulnerabilities and secret scanning"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+      - name: OWASP Dependency-Check (fails the build at CVSS >= 7)
+        run: >
+          mvn -B -f backend/pom.xml org.owasp:dependency-check-maven:10.0.4:aggregate
+          -DfailBuildOnCVSS=7 -DnvdApiKeyEnvironmentVariable=NVD_API_KEY -Dformats=HTML,JSON
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}      # optional but strongly recommended (rate limits)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: npm audit (production dependencies, high and above)
+        run: npm audit --omit=dev --audit-level=high
+        working-directory: frontend
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-check-report
+          path: backend/target/dependency-check-report.*
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------------------------------------------
+  config-validation:
+    name: "6 Configuration validation"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install validators (kubeconform, hadolint)
+        run: |
+          curl -fsSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz kubeconform
+          sudo mv kubeconform /usr/local/bin/
+          curl -fsSL -o hadolint https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64
+          chmod +x hadolint && sudo mv hadolint /usr/local/bin/
+      - name: Validate compose, Kubernetes manifests, Dockerfiles, Prometheus rules, Grafana dashboards
+        run: bash scripts/validate-infra.sh
+
+  # ---------------------------------------------------------------------------------------------------------------
+  images:
+    name: "7-9 Build, scan and publish images"
+    needs: [backend, frontend, frontend-react, static-analysis, security-scan, config-validation]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: platform-service,    dockerfile: infrastructure/docker/platform-service.Dockerfile }
+          - { name: clearing-simulator,  dockerfile: infrastructure/docker/clearing-simulator.Dockerfile }
+          - { name: frontend,            dockerfile: infrastructure/docker/frontend.Dockerfile }
+          - { name: frontend-react,      dockerfile: infrastructure/docker/frontend-react.Dockerfile }
+    steps:
+      - uses: actions/checkout@v4
+      # artifact versioning: 1.0.<run number>+<short sha>  (semver build metadata); images are tagged with both parts
+      - id: version
+        run: echo "version=1.0.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image (not pushed yet)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          load: true
+          tags: ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Scan image for vulnerabilities (fails on HIGH/CRITICAL with a fix available)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.IMAGE_PREFIX }}/${{ matrix.name }}:${{ steps.version.outputs.version }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Log in and push (main branch only)
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push versioned image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker tag  "$IMAGE_PREFIX/${{ matrix.name }}:${{ steps.version.outputs.version }}" "$IMAGE_PREFIX/${{ matrix.name }}:sha-${GITHUB_SHA::7}"
+          docker push "$IMAGE_PREFIX/${{ matrix.name }}:${{ steps.version.outputs.version }}"
+          docker push "$IMAGE_PREFIX/${{ matrix.name }}:sha-${GITHUB_SHA::7}"
+
+  # ---------------------------------------------------------------------------------------------------------------
+  deploy-test:
+    name: "10-11 Deploy to the test environment and smoke test"
+    needs: images
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: test                      # protection rules / required reviewers are configured on the environment
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.images.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check deployment credentials are configured
+        id: creds
+        run: |
+          if [ -z "${{ secrets.TEST_KUBECONFIG_B64 }}" ]; then echo "configured=false" >> "$GITHUB_OUTPUT"; echo "No TEST_KUBECONFIG_B64 secret: deployment skipped."; else echo "configured=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: azure/setup-kubectl@v4
+        if: steps.creds.outputs.configured == 'true'
+      - name: Deploy with kustomize (rolling update, zero downtime)
+        if: steps.creds.outputs.configured == 'true'
+        run: |
+          mkdir -p ~/.kube && echo "${{ secrets.TEST_KUBECONFIG_B64 }}" | base64 -d > ~/.kube/config && chmod 600 ~/.kube/config
+          cd infrastructure/k8s/overlays/test
+          kubectl kustomize . | sed "s#ghcr.io/example-org/investment-platform#$IMAGE_PREFIX#g; s#:1.0.0#:$VERSION#g" > /tmp/rendered.yaml
+          kubectl apply -f /tmp/rendered.yaml
+          kubectl -n investment-platform rollout status deployment/platform-service --timeout=300s
+          kubectl -n investment-platform rollout status deployment/frontend --timeout=120s
+      - name: Post-deployment smoke tests
+        if: steps.creds.outputs.configured == 'true'
+        run: bash scripts/smoke-test.sh "${{ vars.TEST_BASE_URL }}"
+      - name: Roll back on failure
+        if: failure() && steps.creds.outputs.configured == 'true'
+        run: |
+          kubectl -n investment-platform rollout undo deployment/platform-service || true
+          kubectl -n investment-platform rollout undo deployment/frontend || true

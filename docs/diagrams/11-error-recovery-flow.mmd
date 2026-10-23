@@ -1,0 +1,13 @@
+flowchart TD
+  call["authorize(reference) at the clearing network"] --> r{"outcome"}
+  r -->|"200 AUTHORIZED"| ok["COMPLETED"]
+  r -->|"200 DECLINED"| dec["reverse reserved funds<br/>FAILED CLEARING_DECLINED"]
+  r -->|"4xx / connection refused /<br/>DNS failure / circuit OPEN<br/>(request provably not sent)"| ns["reverse funds<br/>FAILED CLEARING_UNAVAILABLE"]
+  r -->|"read timeout / 5xx after retries<br/>(may have executed)"| unk["RECONCILIATION_REQUIRED<br/>funds stay reserved<br/>reconciliation record OPEN"]
+  unk --> auto["reconciler (every 15 s):<br/>GET /authorizations/{reference}"]
+  auto -->|"AUTHORIZED"| ok2["resolve: CONFIRMED_EXECUTED -> COMPLETED"]
+  auto -->|"DECLINED, or NOT FOUND after grace period"| no["resolve: CONFIRMED_NOT_EXECUTED<br/>reverse funds -> FAILED"]
+  auto -->|"still unknown"| wait["stay OPEN, alert after 15 min"]
+  wait --> manual["operator investigates:<br/>attempts, audit trail, network portal<br/>resolve manually (maker-checker)"]
+  manual --> ok2
+  manual --> no

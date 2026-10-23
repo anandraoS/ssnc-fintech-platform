@@ -1,0 +1,36 @@
+flowchart TB
+  subgraph browser["Angular 20 SPA (standalone components, signals, OnPush)"]
+    router["Router<br/>lazy routes - authGuard - roleGuard"]
+    shell["ShellComponent<br/>role-aware navigation"]
+    subgraph features["Feature components"]
+      home["Dashboard / Portfolio"]
+      acc["Accounts - Account detail"]
+      tx["Transactions - New - Detail"]
+      inv["Investigations"]
+      aud["Audit - Customers"]
+    end
+    subgraph shared["Shared"]
+      sv["StateView<br/>loading - empty - error - ready"]
+      chip["StatusChip"]
+      money["MoneyPipe<br/>(string math only)"]
+    end
+    subgraph core["Core"]
+      auth["AuthService<br/>token in memory only"]
+      api["ApiService<br/>typed HttpClient facade"]
+      idem["IdempotencyKeys"]
+      subgraph interceptors["HTTP interceptors"]
+        i1["errorInterceptor<br/>ApiProblem, 401 sign-out"]
+        i2["authInterceptor<br/>Bearer to /api only"]
+        i3["correlationInterceptor<br/>X-Correlation-Id"]
+      end
+    end
+  end
+  nginx["nginx<br/>CSP - security headers - /api proxy"]
+  backend["platform-service REST API"]
+
+  router --> shell --> features
+  features --> shared
+  features --> api
+  features --> auth
+  tx --> idem
+  api --> i1 --> i2 --> i3 --> nginx --> backend

@@ -1,0 +1,19 @@
+flowchart TD
+  start(["POST /transactions<br/>Idempotency-Key K"]) --> fmt{"K present and<br/>8-80 safe chars?"}
+  fmt -- no --> e400["400 IDEMPOTENCY_KEY_REQUIRED / INVALID"]
+  fmt -- yes --> look["SELECT record by (principal, K)"]
+  look --> found{"record exists?"}
+  found -- yes --> same{"request hash<br/>equal?"}
+  same -- yes --> replay["return the ORIGINAL result<br/>header Idempotent-Replayed: true"]
+  same -- no --> e422["422 IDEMPOTENCY_KEY_REUSED"]
+  found -- no --> tx["BEGIN: INSERT transaction, INSERT idempotency record<br/>(UNIQUE principal+key), validate, outbox, audit"]
+  tx --> race{"unique violation?<br/>(a concurrent twin won)"}
+  race -- no --> commit["COMMIT: 202 Accepted (or 422 rejected)"]
+  race -- yes --> rb["whole transaction rolls back"]
+  rb --> reread["re-read the winner's record"] --> same
+
+  commit --> proc["later: worker process(txId)"]
+  proc --> lock["lock accounts FOR UPDATE<br/>in ascending id order"]
+  lock --> chk{"authoritative checks:<br/>ACTIVE, funds, daily limit"}
+  chk -- ok --> apply["debit/credit + ledger entries<br/>(UNIQUE per tx, account, type)"]
+  chk -- "not ok" --> fail["FAILED with business code<br/>(nothing half-applied)"]

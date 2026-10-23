@@ -1,0 +1,16 @@
+flowchart TB
+  subgraph t0["DB transaction 0 - submit (TransactionTemplate)"]
+    a0["INSERT transaction RECEIVED<br/>INSERT idempotency record<br/>validate -> VALIDATED<br/>INSERT outbox event + audit"]
+  end
+  subgraph t1["DB transaction 1 - begin (TransactionProcessor)"]
+    a1["VALIDATED -> PROCESSING<br/>deposit / transfer: apply ledger -> COMPLETED<br/>withdrawal: debit (reserve funds) + attempt"]
+  end
+  ext["EXTERNAL call - NO database transaction open<br/>authorize(reference) with timeout, retry, circuit breaker"]
+  subgraph t2["DB transaction 2 - finish"]
+    a2["Authorized -> COMPLETED<br/>Declined / NotSent -> reversal credit + FAILED<br/>Unknown -> RECONCILIATION_REQUIRED + record (funds stay reserved)"]
+  end
+  rec["Reconciliation (own transactions)<br/>lookup at the network -> resolve"]
+  t0 -->|"after commit, at-least-once"| t1
+  t1 -->|"withdrawal only"| ext --> t2
+  t2 -.->|"unknown outcome"| rec
+  crash["crash between t1 and t2"] -.->|"maintenance: PROCESSING older than 5 min"| rec

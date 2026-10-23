@@ -1,0 +1,26 @@
+# Test environment: fewer replicas, includes the clearing simulator so end-to-end behaviour (declines, timeouts, chaos) can
+# be exercised after a deployment. Production uses base/ only and points CLEARING_URL at the real network.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - clearing-simulator.yaml
+patches:
+  - target: { kind: Deployment, name: platform-service }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target: { kind: Deployment, name: frontend }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  - target: { kind: ConfigMap, name: platform-config }
+    patch: |-
+      - op: replace
+        path: /data/CLEARING_URL
+        value: http://clearing-simulator:8080
+      - op: replace
+        path: /data/TRACING_SAMPLING
+        value: "1.0"

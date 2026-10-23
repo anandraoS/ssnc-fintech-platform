@@ -1,0 +1,169 @@
+# Local stack: PostgreSQL + platform-service + clearing-simulator + Angular (nginx) + observability.
+#
+#   cp .env.example .env        # then edit the CHANGE_ME values (they are required - compose refuses to start without them)
+#   docker compose -f infrastructure/docker-compose.yml --env-file .env up --build
+#
+#   UI .............. http://localhost:4280          API ......... http://localhost:18480/swagger-ui.html
+#   React UI ........ http://localhost:4281          (optional: add --profile react)
+#   Grafana ......... http://localhost:3000          Prometheus .. http://localhost:9091     Jaeger ... http://localhost:16686
+#
+# LOCAL DEVELOPMENT ONLY: runs the platform with the "local" profile (local token issuer + synthetic seed data) against a
+# real PostgreSQL so Flyway's PostgreSQL migration (partial indexes, append-only audit trigger) is exercised.
+# Nothing here has been run by the author of this repository - Docker was not available when it was written; it is
+# statically validated only (see docs/validation/validation-report.md).
+
+name: investment-platform
+
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_DB: platform
+      POSTGRES_USER: platform
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U platform -d platform"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # no published port: only containers on this network can reach the database
+    networks: [backend]
+    restart: unless-stopped
+
+  clearing-simulator:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/clearing-simulator.Dockerfile
+    networks: [backend]
+    ports:
+      - "127.0.0.1:18490:8080"     # chaos switch reachable from the host only
+    restart: unless-stopped
+
+  platform-service:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/platform-service.Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clearing-simulator:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: local,postgres
+      SERVER_PORT: "8080"
+      MANAGEMENT_SERVER_PORT: "9090"
+      DB_URL: jdbc:postgresql://postgres:5432/platform
+      DB_USER: platform
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      DB_POOL_MAX: "20"
+      CLEARING_URL: http://clearing-simulator:8080
+      LOCAL_DEMO_PASSWORD: ${LOCAL_DEMO_PASSWORD:?set LOCAL_DEMO_PASSWORD in .env}
+      LOCAL_ISSUER_HMAC_SECRET: ${LOCAL_ISSUER_HMAC_SECRET:?set LOCAL_ISSUER_HMAC_SECRET (>= 32 bytes) in .env}
+      CORS_ALLOWED_ORIGINS: http://localhost:4280
+      LOG_STRUCTURED_FORMAT: ecs
+      TRACING_SAMPLING: "1.0"
+      OTLP_EXPORT_ENABLED: "true"
+      OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
+    ports:
+      - "18480:8080"
+    networks: [backend, frontend, observability]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/actuator/health/readiness | grep -q UP"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+      start_period: 40s
+    stop_grace_period: 30s          # > spring.lifecycle.timeout-per-shutdown-phase (20 s)
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/frontend.Dockerfile
+    depends_on: [platform-service]
+    ports:
+      - "4280:8080"
+    networks: [frontend]
+    read_only: true
+    tmpfs: [/tmp, /var/cache/nginx]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  # Optional second UI: the React edition of the same console (same API, same nginx proxy). Start with
+  #   docker compose -f infrastructure/docker-compose.yml --env-file .env --profile react up --build
+  frontend-react:
+    profiles: [react]
+    build:
+      context: ..
+      dockerfile: infrastructure/docker/frontend-react.Dockerfile
+    depends_on: [platform-service]
+    ports:
+      - "4281:8080"
+    networks: [frontend]
+    read_only: true
+    tmpfs: [/tmp, /var/cache/nginx]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ../observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../observability/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+    ports:
+      - "127.0.0.1:9091:9090"
+    networks: [observability]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ../observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on: [prometheus]
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [observability]
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.113.0
+    command: ["--config=/etc/otel/otel-collector.yml"]
+    volumes:
+      - ../observability/otel/otel-collector.yml:/etc/otel/otel-collector.yml:ro
+    depends_on: [jaeger]
+    networks: [observability]
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "127.0.0.1:16686:16686"
+    networks: [observability]
+    restart: unless-stopped
+
+networks:
+  backend: {}
+  frontend: {}
+  observability: {}
+
+volumes:
+  pgdata: {}

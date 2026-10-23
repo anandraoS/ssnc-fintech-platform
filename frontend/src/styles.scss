@@ -1,0 +1,41 @@
+@use '@angular/material' as mat;
+
+html {
+  color-scheme: light;
+  @include mat.theme((
+    color: (primary: mat.$azure-palette, tertiary: mat.$cyan-palette),
+    typography: (
+      plain-family: ('Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif),
+      brand-family: ('Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif),
+    ),
+    density: -1,
+  ));
+}
+
+html, body { height: 100%; margin: 0; }
+body { font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f4f6f9; color: #1c2430; }
+
+:root {
+  --ok: #0f766e; --warn: #b45309; --bad: #b42318; --info: #1d4ed8; --muted: #5b6573; --rule: #d5dbe3;
+}
+
+.page { padding: 20px 24px 40px; max-width: 1400px; margin: 0 auto; }
+.page > h1 { font-size: 22px; font-weight: 500; margin: 0 0 4px; }
+.page > .subtitle { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+.card { background: #fff; border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; }
+.grid { display: grid; gap: 14px; }
+.grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; margin-bottom: 8px; }
+.filters mat-form-field { width: 190px; }
+.mono { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; }
+.amount { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+table.mat-mdc-table { width: 100%; }
+.table-wrap { overflow-x: auto; }
+.muted { color: var(--muted); }
+.row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+a { color: #0b5cad; }
+a:focus-visible, button:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; }
+
+mat-form-field { margin-bottom: 6px; }

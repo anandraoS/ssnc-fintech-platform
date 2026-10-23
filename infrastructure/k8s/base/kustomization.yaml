@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: investment-platform
+resources:
+  - namespace.yaml
+  - config-and-policies.yaml
+  - platform-service.yaml
+  - frontend.yaml
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: investment-platform
+    includeSelectors: false
+images:
+  - name: ghcr.io/example-org/investment-platform/platform-service
+    newTag: "1.0.0"
+  - name: ghcr.io/example-org/investment-platform/frontend
+    newTag: "1.0.0"

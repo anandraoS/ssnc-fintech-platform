@@ -1,0 +1,170 @@
+server:
+  port: ${SERVER_PORT:18480}
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+  tomcat:
+    max-swallow-size: 128KB
+    threads:
+      max: ${TOMCAT_MAX_THREADS:100}
+    accept-count: 100
+
+spring:
+  application:
+    name: investment-platform-service
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  task:
+    scheduling:
+      shutdown:
+        await-termination: true
+        await-termination-period: 20s
+  datasource:
+    # Default: in-memory H2 in PostgreSQL mode (zero-install). Compose/Kubernetes override with PostgreSQL via env vars.
+    url: ${DB_URL:jdbc:h2:mem:platform;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1}
+    username: ${DB_USER:sa}
+    password: ${DB_PASSWORD:}
+    hikari:
+      pool-name: platform-pool
+      maximum-pool-size: ${DB_POOL_MAX:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: 3000      # fail fast: 3s to obtain a connection
+      validation-timeout: 2000
+      idle-timeout: 300000
+      max-lifetime: 1500000
+      leak-detection-threshold: 30000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate            # Flyway owns the schema; Hibernate only validates it
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+          batch_size: 25
+        order_updates: true
+        default_batch_fetch_size: 50
+  flyway:
+    enabled: true
+    # {vendor} resolves to postgresql / h2 so each database gets its own V2 migration
+    locations: classpath:db/migration/common,classpath:db/migration/{vendor}
+    validate-on-migrate: true
+  jackson:
+    default-property-inclusion: non_null
+    deserialization:
+      fail-on-unknown-properties: true
+    serialization:
+      write-dates-as-timestamps: false
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 100
+        one-indexed-parameters: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER_URI:}   # production: the OIDC provider issuer; blank for the local issuer
+
+management:
+  server:
+    # blank => actuator shares the API port (local/tests). Containers set 9090 so probes and Prometheus use a port that is
+    # never exposed through the ingress.
+    port: ${MANAGEMENT_SERVER_PORT:}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  health:
+    defaults:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+      slo:
+        http.server.requests: 100ms,300ms,1s
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING:0.0}
+  otlp:
+    tracing:
+      endpoint: ${OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+      export:
+        enabled: ${OTLP_EXPORT_ENABLED:false}
+
+logging:
+  pattern:
+    level: "%5p [%X{correlationId:-}]"
+  structured:
+    format:
+      console: ${LOG_STRUCTURED_FORMAT:}      # set to "ecs" in containers for JSON logs
+  level:
+    root: INFO
+    com.fintechdemo: INFO
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  default-produces-media-type: application/json
+
+app:
+  http:
+    max-request-bytes: 65536
+  docs:
+    public: ${DOCS_PUBLIC:false}
+  security:
+    roles-claim: roles
+    customer-claim: customer_id
+    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4280}
+    rate-limit:
+      enabled: true
+      api-capacity: ${RATE_LIMIT_API_CAPACITY:240}
+      api-refill-per-minute: ${RATE_LIMIT_API_REFILL:240}
+      auth-capacity: ${RATE_LIMIT_AUTH_CAPACITY:10}
+      auth-refill-per-minute: ${RATE_LIMIT_AUTH_REFILL:10}
+    local-issuer:
+      enabled: false                         # only the "local" profile enables it
+      hmac-secret: ${LOCAL_ISSUER_HMAC_SECRET:}   # blank => random key generated at start-up
+      demo-password: ${LOCAL_DEMO_PASSWORD:demo-password}   # synthetic, local profile only
+      token-ttl: 30m
+  transaction:
+    max-amount: 1000000
+    review-threshold: 50000
+    idempotency-retention: 7d
+  processing:
+    dispatcher-enabled: true
+    dispatcher-delay: 500ms
+    batch-size: 20
+    max-attempts: 5
+    backoff-base: 2s
+    stuck-after: 5m
+    reconciler-enabled: true
+    reconciler-delay: 15s
+    reconcile-grace: 30s      # a NotFound lookup is only treated as "not executed" after this age
+    maintenance-delay: 1h
+  clearing:
+    base-url: ${CLEARING_URL:}               # blank => in-process approve-all substitute (see InProcessClearingClient)
+    connect-timeout: 500ms
+    read-timeout: 2s
+    max-attempts: 3
+    retry-base-delay: 100ms
+    retry-max-delay: 1s
+    circuit-failure-rate: 50
+    circuit-minimum-calls: 5
+    circuit-window: 10
+    circuit-open-duration: 10s

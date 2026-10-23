@@ -1,0 +1,29 @@
+flowchart TB
+  users(["Users"]) --> r53["Route 53"] --> cf["CloudFront + AWS WAF<br/>(rate rules, OWASP managed rules)"]
+  cf --> alb["Application Load Balancer<br/>TLS 1.2+ (ACM)"]
+
+  subgraph vpc["VPC (3 AZs)"]
+    subgraph pub["public subnets"]
+      alb
+      nat["NAT gateways"]
+    end
+    subgraph priv["private subnets - Amazon EKS"]
+      fe["frontend pods (nginx)"]
+      be["platform-service pods<br/>HPA 2-8, PDB, spread across AZs"]
+      otel["OTel collector"]
+    end
+    subgraph data["isolated data subnets"]
+      rds[("Amazon RDS PostgreSQL<br/>Multi-AZ, encrypted (KMS),<br/>PITR backups")]
+    end
+  end
+
+  alb --> fe --> be
+  be --> rds
+  be -->|"PrivateLink / VPN"| clearing[["clearing network"]]
+  be -->|"JWKS / token validation"| cognito[["OIDC provider<br/>(Cognito / Keycloak / Entra ID)"]]
+  sm["AWS Secrets Manager<br/>+ External Secrets Operator (IRSA)"] --> be
+  be --> otel --> xray["X-Ray / Tempo"]
+  be --> cw["CloudWatch / Prometheus + Grafana (AMP/AMG)"]
+  ecr["ECR (immutable tags, scan on push)"] --> be
+  gha["GitHub Actions<br/>OIDC federation, no long-lived keys"] --> ecr
+  gha -->|"kubectl / Argo CD"| be

@@ -1,0 +1,18 @@
+stateDiagram-v2
+  direction LR
+  state "Customer" as C {
+    [*] --> C_ACTIVE: create (ops/admin)
+    C_ACTIVE --> C_SUSPENDED: suspend (admin, reason audited)
+    C_SUSPENDED --> C_ACTIVE: reactivate (admin)
+    C_ACTIVE --> C_CLOSED
+  }
+  state "Account" as A {
+    [*] --> PENDING_ACTIVATION: open (ops/admin)
+    PENDING_ACTIVATION --> ACTIVE: activate (customer must be ACTIVE)
+    ACTIVE --> SUSPENDED: suspend (reason required)
+    SUSPENDED --> ACTIVE: reactivate
+    ACTIVE --> CLOSED: close (admin: zero balance, nothing in flight)
+    SUSPENDED --> CLOSED
+    PENDING_ACTIVATION --> CLOSED
+    CLOSED --> [*]
+  }

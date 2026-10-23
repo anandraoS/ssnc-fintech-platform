@@ -1,0 +1,12 @@
+flowchart LR
+  req["1 Requirements<br/>and acceptance criteria<br/>(specs/*.md)"] --> design["2 Technical design<br/>+ API contract + data model"]
+  design --> impl["3 Implement<br/>(small slices, tests first)<br/>Copilot with repo instructions"]
+  impl --> tests["4 Test generation<br/>unit - integration - BDD"]
+  tests --> sec["5 Security review<br/>ai-engineering/prompts/security-review.md"]
+  sec --> perf["6 Performance review<br/>locks, queries, N+1, retries"]
+  perf --> human["7 Human review<br/>PR checklist + Definition of Done"]
+  human --> rel["8 Docs + release plan<br/>runbook, rollback"]
+  human -.->|"rejected"| impl
+  ctx[("Context files:<br/>copilot-instructions.md<br/>architecture - java - angular<br/>api - db - security - testing")] -.-> impl
+  ctx -.-> tests
+  ctx -.-> sec

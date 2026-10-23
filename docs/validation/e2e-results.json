@@ -1,0 +1,309 @@
+{
+  "ranAt": "2026-10-19T11:37:57.653Z",
+  "api": "http://localhost:18580",
+  "withChaos": false,
+  "pass": 50,
+  "fail": 0,
+  "results": [
+    {
+      "scenario": "platform is up",
+      "check": "liveness probe is UP",
+      "result": "PASS",
+      "evidence": "expected \"UP\", got \"UP\""
+    },
+    {
+      "scenario": "platform is up",
+      "check": "readiness probe is UP",
+      "result": "PASS",
+      "evidence": "expected \"UP\", got \"UP\""
+    },
+    {
+      "scenario": "platform is up",
+      "check": "OpenAPI document is served",
+      "result": "PASS",
+      "evidence": "200"
+    },
+    {
+      "scenario": "authentication and roles",
+      "check": "anonymous request is 401",
+      "result": "PASS",
+      "evidence": "expected 401, got 401"
+    },
+    {
+      "scenario": "authentication and roles",
+      "check": "wrong password is 401",
+      "result": "PASS",
+      "evidence": "expected 401, got 401"
+    },
+    {
+      "scenario": "authentication and roles",
+      "check": "customer identity resolved",
+      "result": "PASS",
+      "evidence": "expected \"CUSTOMER\", got \"CUSTOMER\""
+    },
+    {
+      "scenario": "authentication and roles",
+      "check": "customer is linked to her customer record",
+      "result": "PASS",
+      "evidence": "expected \"00000000-0000-4000-8000-000000000001\", got \"00000000-0000-4000-8000-000000000001\""
+    },
+    {
+      "scenario": "authentication and roles",
+      "check": "customer cannot list customers",
+      "result": "PASS",
+      "evidence": "expected 403, got 403"
+    },
+    {
+      "scenario": "authentication and roles",
+      "check": "support can list customers",
+      "result": "PASS",
+      "evidence": "expected 200, got 200"
+    },
+    {
+      "scenario": "valid withdrawal (BDD)",
+      "check": "submission accepted with 202",
+      "result": "PASS",
+      "evidence": "expected 202, got 202"
+    },
+    {
+      "scenario": "valid withdrawal (BDD)",
+      "check": "withdrawal COMPLETED asynchronously",
+      "result": "PASS",
+      "evidence": "expected \"COMPLETED\", got \"COMPLETED\""
+    },
+    {
+      "scenario": "valid withdrawal (BDD)",
+      "check": "balance reduced by exactly 250.00",
+      "result": "PASS",
+      "evidence": "expected \"750.00\", got \"750.00\""
+    },
+    {
+      "scenario": "insufficient funds (BDD)",
+      "check": "rejected with 422",
+      "result": "PASS",
+      "evidence": "expected 422, got 422"
+    },
+    {
+      "scenario": "insufficient funds (BDD)",
+      "check": "failure code is INSUFFICIENT_FUNDS",
+      "result": "PASS",
+      "evidence": "expected \"INSUFFICIENT_FUNDS\", got \"INSUFFICIENT_FUNDS\""
+    },
+    {
+      "scenario": "insufficient funds (BDD)",
+      "check": "balance untouched",
+      "result": "PASS",
+      "evidence": "expected \"100.00\", got \"100.00\""
+    },
+    {
+      "scenario": "duplicate submission (BDD)",
+      "check": "all three concurrent duplicates succeed",
+      "result": "PASS",
+      "evidence": "202,202,202"
+    },
+    {
+      "scenario": "duplicate submission (BDD)",
+      "check": "all return the same transaction id",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "duplicate submission (BDD)",
+      "check": "deposit applied exactly once",
+      "result": "PASS",
+      "evidence": "expected \"40.00\", got \"40.00\""
+    },
+    {
+      "scenario": "duplicate submission (BDD)",
+      "check": "same key with different payload is 422",
+      "result": "PASS",
+      "evidence": "expected 422, got 422"
+    },
+    {
+      "scenario": "duplicate submission (BDD)",
+      "check": "error code IDEMPOTENCY_KEY_REUSED",
+      "result": "PASS",
+      "evidence": "expected \"IDEMPOTENCY_KEY_REUSED\", got \"IDEMPOTENCY_KEY_REUSED\""
+    },
+    {
+      "scenario": "transfer between accounts (BDD)",
+      "check": "transfer COMPLETED",
+      "result": "PASS",
+      "evidence": "expected \"COMPLETED\", got \"COMPLETED\""
+    },
+    {
+      "scenario": "transfer between accounts (BDD)",
+      "check": "source debited",
+      "result": "PASS",
+      "evidence": "expected \"300.00\", got \"300.00\""
+    },
+    {
+      "scenario": "transfer between accounts (BDD)",
+      "check": "target credited",
+      "result": "PASS",
+      "evidence": "expected \"250.00\", got \"250.00\""
+    },
+    {
+      "scenario": "transfer between accounts (BDD)",
+      "check": "ledger integrity check finds no mismatching accounts",
+      "result": "PASS",
+      "evidence": "expected 0, got 0"
+    },
+    {
+      "scenario": "concurrent withdrawals cannot overspend (BDD)",
+      "check": "all 16 pass the advisory check",
+      "result": "PASS",
+      "evidence": "202,202,202,202,202,202,202,202,202,202,202,202,202,202,202,202"
+    },
+    {
+      "scenario": "concurrent withdrawals cannot overspend (BDD)",
+      "check": "exactly 10 withdrawals complete",
+      "result": "PASS",
+      "evidence": "expected 10, got 10"
+    },
+    {
+      "scenario": "concurrent withdrawals cannot overspend (BDD)",
+      "check": "the other 6 fail with INSUFFICIENT_FUNDS",
+      "result": "PASS",
+      "evidence": "expected 6, got 6"
+    },
+    {
+      "scenario": "concurrent withdrawals cannot overspend (BDD)",
+      "check": "balance is exactly zero, never negative",
+      "result": "PASS",
+      "evidence": "expected \"0.00\", got \"0.00\""
+    },
+    {
+      "scenario": "unauthorized account access (BDD)",
+      "check": "reading another customer's account is 404",
+      "result": "PASS",
+      "evidence": "expected 404, got 404"
+    },
+    {
+      "scenario": "unauthorized account access (BDD)",
+      "check": "reading their balance is 404",
+      "result": "PASS",
+      "evidence": "expected 404, got 404"
+    },
+    {
+      "scenario": "unauthorized account access (BDD)",
+      "check": "withdrawing from it is 404",
+      "result": "PASS",
+      "evidence": "expected 404, got 404"
+    },
+    {
+      "scenario": "unauthorized account access (BDD)",
+      "check": "balance unchanged",
+      "result": "PASS",
+      "evidence": "expected \"300.00\", got \"300.00\""
+    },
+    {
+      "scenario": "unauthorized account access (BDD)",
+      "check": "denials are audited",
+      "result": "PASS",
+      "evidence": "3"
+    },
+    {
+      "scenario": "maker-checker approval",
+      "check": "large withdrawal waits for review",
+      "result": "PASS",
+      "evidence": "expected \"PENDING_REVIEW\", got \"PENDING_REVIEW\""
+    },
+    {
+      "scenario": "maker-checker approval",
+      "check": "submitter cannot approve own transaction",
+      "result": "PASS",
+      "evidence": "expected 403, got 403"
+    },
+    {
+      "scenario": "maker-checker approval",
+      "check": "second operator approves",
+      "result": "PASS",
+      "evidence": "expected 200, got 200"
+    },
+    {
+      "scenario": "maker-checker approval",
+      "check": "approved transaction completes",
+      "result": "PASS",
+      "evidence": "expected \"COMPLETED\", got \"COMPLETED\""
+    },
+    {
+      "scenario": "clearing network: decline, retry, timeout + reconciliation",
+      "check": "decline (cents .13) fails the transaction",
+      "result": "PASS",
+      "evidence": "expected \"CLEARING_DECLINED\", got \"CLEARING_DECLINED\""
+    },
+    {
+      "scenario": "clearing network: decline, retry, timeout + reconciliation",
+      "check": "reserved funds were refunded",
+      "result": "PASS",
+      "evidence": "expected \"1000.00\", got \"1000.00\""
+    },
+    {
+      "scenario": "clearing network: decline, retry, timeout + reconciliation",
+      "check": "two transient 503s are retried and the withdrawal completes (cents .99)",
+      "result": "PASS",
+      "evidence": "expected \"COMPLETED\", got \"COMPLETED\""
+    },
+    {
+      "scenario": "clearing network: decline, retry, timeout + reconciliation",
+      "check": "balance after the completed withdrawal",
+      "result": "PASS",
+      "evidence": "expected \"989.01\", got \"989.01\""
+    },
+    {
+      "scenario": "clearing network: decline, retry, timeout + reconciliation",
+      "check": "read timeout leaves the outcome UNKNOWN (cents .66)",
+      "result": "PASS",
+      "evidence": "RECONCILIATION_REQUIRED"
+    },
+    {
+      "scenario": "clearing network: decline, retry, timeout + reconciliation",
+      "check": "the reconciler asks the network and completes it (network DID execute)",
+      "result": "PASS",
+      "evidence": "expected \"COMPLETED\", got \"COMPLETED\""
+    },
+    {
+      "scenario": "clearing network: decline, retry, timeout + reconciliation",
+      "check": "funds stayed reserved throughout (989.01 - 10.66)",
+      "result": "PASS",
+      "evidence": "expected \"978.35\", got \"978.35\""
+    },
+    {
+      "scenario": "operational dashboard data",
+      "check": "summary available to support",
+      "result": "PASS",
+      "evidence": "expected 200, got 200"
+    },
+    {
+      "scenario": "operational dashboard data",
+      "check": "summary has volumes, latency and http stats",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "operational dashboard data",
+      "check": "prometheus exposes business metrics",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "operational dashboard data",
+      "check": "prometheus carries platform_transactions_finished_total",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "operational dashboard data",
+      "check": "prometheus carries hikaricp metrics",
+      "result": "PASS",
+      "evidence": ""
+    },
+    {
+      "scenario": "operational dashboard data",
+      "check": "prometheus carries http latency histogram",
+      "result": "PASS",
+      "evidence": ""
+    }
+  ]
+}

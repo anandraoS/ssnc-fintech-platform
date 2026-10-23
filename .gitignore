@@ -1,0 +1,27 @@
+# build output and dependencies
+target/
+dist/
+node_modules/
+.angular/
+coverage/
+out-tsc/
+
+# local runtime state, scratch work, secrets
+.run/
+.work/
+.env
+.env.*
+!.env.example
+*.log
+*.hprof
+*.pid
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# generated archives
+*.zip

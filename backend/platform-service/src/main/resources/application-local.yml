@@ -1,0 +1,11 @@
+# Local development profile: synthetic seed data, local token issuer, public API docs. NEVER use in production.
+spring:
+  flyway:
+    locations: classpath:db/migration/common,classpath:db/migration/{vendor},classpath:db/seed
+
+app:
+  docs:
+    public: true
+  security:
+    local-issuer:
+      enabled: true

@@ -1,0 +1,13 @@
+flowchart LR
+  pr(["push / pull request"]) --> b["1-2 backend<br/>compile - unit - integration<br/>(Testcontainers PostgreSQL)"]
+  pr --> f["3 frontend<br/>lint - unit - prod build"]
+  pr --> s["4 static analysis<br/>SpotBugs - CodeQL"]
+  pr --> d["5 security<br/>OWASP Dependency-Check - npm audit - gitleaks"]
+  pr --> c["6 config validation<br/>compose - kubeconform - hadolint - rules"]
+  b & f & s & d & c --> gate{"all green<br/>and on main?"}
+  gate -- no --> stop(["stop: PR feedback only"])
+  gate -- yes --> img["7 build images (3)"] --> scan["8 Trivy scan<br/>HIGH/CRITICAL fail"] --> pub["9 version 1.0.run + push to registry"]
+  pub --> dep["10 deploy to TEST<br/>kustomize rolling update<br/>(approval via environment)"]
+  dep --> smoke["11 smoke tests"]
+  smoke -->|"fail"| rb["automatic rollout undo"]
+  smoke -->|"pass"| prod(["promote same artifact<br/>to production (manual gate)"])
