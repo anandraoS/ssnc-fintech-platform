@@ -23,7 +23,7 @@ public class ClearingConfig {
         // the Boot-managed builder carries the observation customizer, so every call shows up in traces and http.client.requests
         RestClient rest = restClientBuilder.baseUrl(props.baseUrl()).requestFactory(factory).build();
         RetryExecutor retry = new RetryExecutor(props.maxAttempts(), props.retryBaseDelay(), props.retryMaxDelay(),
-                RandomGenerator.getDefault(), d -> Thread.sleep(d.toMillis()));
+                new java.util.Random(), d -> Thread.sleep(d.toMillis()));
         CircuitBreaker breaker = CircuitBreaker.of("clearing", CircuitBreakerConfig.custom()
                 .failureRateThreshold(props.circuitFailureRate())
                 .minimumNumberOfCalls(props.circuitMinimumCalls())

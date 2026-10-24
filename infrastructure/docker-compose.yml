@@ -21,6 +21,8 @@ services:
       POSTGRES_DB: platform
       POSTGRES_USER: platform
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -82,6 +84,7 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
 
+
   frontend:
     build:
       context: ..
@@ -95,70 +98,12 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     restart: unless-stopped
-
-  # Optional second UI: the React edition of the same console (same API, same nginx proxy). Start with
-  #   docker compose -f infrastructure/docker-compose.yml --env-file .env --profile react up --build
-  frontend-react:
-    profiles: [react]
-    build:
-      context: ..
-      dockerfile: infrastructure/docker/frontend-react.Dockerfile
-    depends_on: [platform-service]
-    ports:
-      - "4281:8080"
-    networks: [frontend]
-    read_only: true
-    tmpfs: [/tmp, /var/cache/nginx]
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
-    restart: unless-stopped
-
-  prometheus:
-    image: prom/prometheus:v2.55.1
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.retention.time=7d
-    volumes:
-      - ../observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ../observability/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
-    ports:
-      - "127.0.0.1:9091:9090"
-    networks: [observability]
-    restart: unless-stopped
-
-  grafana:
-    image: grafana/grafana:11.3.0
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
-      GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_ANALYTICS_REPORTING_ENABLED: "false"
-    volumes:
-      - ../observability/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ../observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    depends_on: [prometheus]
-    ports:
-      - "127.0.0.1:3000:3000"
-    networks: [observability]
-    restart: unless-stopped
-
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.113.0
-    command: ["--config=/etc/otel/otel-collector.yml"]
-    volumes:
-      - ../observability/otel/otel-collector.yml:/etc/otel/otel-collector.yml:ro
-    depends_on: [jaeger]
-    networks: [observability]
-    restart: unless-stopped
-
-  jaeger:
-    image: jaegertracing/all-in-one:1.62.0
-    environment:
-      COLLECTOR_OTLP_ENABLED: "true"
-    ports:
-      - "127.0.0.1:16686:16686"
-    networks: [observability]
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
 networks:
   backend: {}
